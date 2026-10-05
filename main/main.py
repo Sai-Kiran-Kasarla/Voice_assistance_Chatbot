@@ -1,6 +1,6 @@
 # ============================================================
 # PERSONAL SIRI
-# Dynamic Voice + Chat Assistant
+# Voice + Chat AI Assistant
 # ============================================================
 
 import os
@@ -30,35 +30,38 @@ st.set_page_config(
 # SESSION STATE
 # ============================================================
 
-defaults = {
+DEFAULTS = {
     "messages": [],
     "history": [],
     "chat_title": "New Chat",
+
     "tts_enabled": True,
     "voice_gender": "Girl",
     "voice_speed": 1.0,
+
     "listening": False,
     "last_audio_hash": "",
     "speak_text": "",
-    "show_voice_panel": False,
+
+    "audio_key": 0,
 }
 
-for key, value in defaults.items():
+for key, value in DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
 
 # ============================================================
-# MODERN UI CSS
+# CSS
 # ============================================================
 
 st.html(
     """
 <style>
 
-/* =========================================================
+/* ============================================================
    GLOBAL
-   ========================================================= */
+   ============================================================ */
 
 html,
 body {
@@ -67,42 +70,26 @@ body {
 }
 
 [data-testid="stApp"] {
-    height: 100vh !important;
-    overflow: hidden !important;
+    background: #f5f7fb !important;
 }
 
 [data-testid="stAppViewContainer"] {
-    height: 100vh !important;
-    overflow: hidden !important;
-    background: #f7f8fc !important;
+    background: #f5f7fb !important;
 }
 
 [data-testid="stMain"] {
-    height: 100vh !important;
     overflow: hidden !important;
 }
 
 [data-testid="stMainBlockContainer"] {
-    max-width: 1380px !important;
-    height: 100vh !important;
-
+    max-width: 1400px !important;
     margin: 0 auto !important;
-
-    padding:
-        12px 18px 10px 18px !important;
-
+    padding: 10px 18px 8px 18px !important;
     box-sizing: border-box !important;
-
-    overflow: hidden !important;
 }
 
-
-/* =========================================================
-   STREAMLIT SPACING
-   ========================================================= */
-
 [data-testid="stVerticalBlock"] {
-    gap: 0.35rem !important;
+    gap: 0.3rem !important;
 }
 
 [data-testid="stHorizontalBlock"] {
@@ -110,13 +97,13 @@ body {
 }
 
 
-/* =========================================================
+/* ============================================================
    SIDEBAR
-   ========================================================= */
+   ============================================================ */
 
 section[data-testid="stSidebar"] {
     background: #ffffff !important;
-    border-right: 1px solid #e2e7ef !important;
+    border-right: 1px solid #dce3ec !important;
 }
 
 section[data-testid="stSidebar"] > div {
@@ -125,69 +112,78 @@ section[data-testid="stSidebar"] > div {
 }
 
 section[data-testid="stSidebar"] .block-container {
-    padding: 18px 13px !important;
+    padding: 18px 12px !important;
 }
 
 
-/* =========================================================
+/* ============================================================
+   SIDEBAR BRAND
+   ============================================================ */
+
+.sidebar-brand {
+    font-size: 21px;
+    font-weight: 800;
+    color: #172033;
+    margin-bottom: 2px;
+}
+
+.sidebar-description {
+    font-size: 12px;
+    color: #7b8494;
+    margin-bottom: 16px;
+}
+
+
+/* ============================================================
    SIDEBAR BUTTONS
-   ========================================================= */
+   ============================================================ */
 
 section[data-testid="stSidebar"] .stButton > button {
-    width: 100% !important;
     min-height: 40px !important;
-
     border-radius: 9px !important;
-
-    border: 1px solid #d9e0ea !important;
-
+    border: 1px solid #d7dfeb !important;
     background: #ffffff !important;
-
-    font-size: 13px !important;
-
     color: #273142 !important;
+    font-size: 13px !important;
 }
 
 section[data-testid="stSidebar"] .stButton > button:hover {
-    border-color: #8db4ff !important;
-    background: #f5f8ff !important;
+    background: #f4f7ff !important;
+    border-color: #9ebcf0 !important;
 }
 
 
-/* =========================================================
-   HEADER
-   ========================================================= */
+/* ============================================================
+   MAIN HEADER
+   ============================================================ */
 
 .siri-header {
     width: 100%;
-
-    min-height: 92px;
+    height: 96px;
 
     box-sizing: border-box;
 
     display: flex;
     flex-direction: column;
-
     align-items: center;
     justify-content: center;
 
     text-align: center;
 
-    border-radius: 18px;
+    border-radius: 17px;
 
     background:
         linear-gradient(
             135deg,
-            #edf3ff 0%,
-            #f5f0ff 50%,
-            #ecfaff 100%
+            #edf4ff 0%,
+            #f5f1ff 50%,
+            #edfbff 100%
         );
 
-    border: 1px solid #dce5f2;
+    border: 1px solid #d7e2f0;
 
     box-shadow:
-        0 4px 18px
-        rgba(45, 91, 160, 0.07);
+        0 3px 14px rgba(37, 99, 235, 0.06);
 
     margin-bottom: 7px;
 }
@@ -195,58 +191,58 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 .siri-icon {
     font-size: 27px;
     line-height: 27px;
-    margin-bottom: 2px;
+    height: 27px;
+    margin-bottom: 1px;
 }
 
 .siri-title {
-    margin: 0;
-
     font-size: 31px;
     line-height: 35px;
-
+    height: 35px;
     font-weight: 800;
-
     letter-spacing: -0.7px;
-
     color: #2563d8;
 }
 
 .siri-subtitle {
-    margin-top: 2px;
-
     font-size: 12px;
-
+    line-height: 17px;
     color: #667085;
+    margin-top: 1px;
 }
 
 
-/* =========================================================
-   STATUS BAR
-   ========================================================= */
+/* ============================================================
+   STATUS
+   ============================================================ */
 
 .status-card {
+    height: 36px;
+    min-height: 36px;
     width: 100%;
 
-    min-height: 36px;
-
     display: flex;
-
     align-items: center;
     justify-content: center;
+
+    box-sizing: border-box;
 
     border-radius: 9px;
 
     font-size: 12px;
-
     font-weight: 650;
-
-    box-sizing: border-box;
 }
 
 .status-ready {
     background: #e9f9ef;
     color: #15803d;
-    border: 1px solid #c7efd4;
+    border: 1px solid #c5ecd2;
+}
+
+.status-connected {
+    background: #edf5ff;
+    color: #2563d8;
+    border: 1px solid #d3e2ff;
 }
 
 .status-listening {
@@ -255,61 +251,32 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     border: 1px solid #ffd1d1;
 }
 
-.status-connected {
-    background: #eef5ff;
-    color: #2563d8;
-    border: 1px solid #d4e3ff;
-}
 
-
-/* =========================================================
-   INFO BOXES
-   ========================================================= */
-
-[data-testid="stAlert"] {
-    min-height: 36px !important;
-
-    padding: 7px 12px !important;
-
-    border-radius: 9px !important;
-
-    font-size: 12px !important;
-}
-
-
-/* =========================================================
+/* ============================================================
    CHAT CONTAINER
-   ========================================================= */
+   ============================================================ */
 
 [data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 15px !important;
-
-    border:
-        1px solid #dce2eb !important;
-
+    border-radius: 14px !important;
+    border: 1px solid #d7dee8 !important;
     background: #ffffff !important;
 
     box-shadow:
-        0 2px 8px
-        rgba(15, 23, 42, 0.025) !important;
+        0 2px 10px rgba(15, 23, 42, 0.03) !important;
 }
 
 
-/* =========================================================
-   EMPTY STATE
-   ========================================================= */
+/* ============================================================
+   EMPTY CHAT
+   ============================================================ */
 
 .empty-state {
-    height: 100%;
-
-    min-height: 330px;
+    min-height: 300px;
 
     display: flex;
-
     flex-direction: column;
 
     align-items: center;
-
     justify-content: center;
 
     text-align: center;
@@ -322,7 +289,6 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     border-radius: 50%;
 
     display: flex;
-
     align-items: center;
     justify-content: center;
 
@@ -334,31 +300,25 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 }
 
 .empty-title {
-    font-size: 21px;
-
+    font-size: 22px;
     font-weight: 750;
-
-    color: #202938;
-
+    color: #1f2937;
     margin-bottom: 5px;
 }
 
 .empty-text {
     font-size: 13px;
-
     color: #7a8494;
-
-    max-width: 400px;
 }
 
 
-/* =========================================================
+/* ============================================================
    CHAT MESSAGES
-   ========================================================= */
+   ============================================================ */
 
 [data-testid="stChatMessage"] {
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
 }
 
 [data-testid="stChatMessageContent"] {
@@ -367,9 +327,9 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 }
 
 
-/* =========================================================
-   INPUT AREA
-   ========================================================= */
+/* ============================================================
+   TEXT INPUT
+   ============================================================ */
 
 [data-testid="stTextInput"] {
     margin: 0 !important;
@@ -377,174 +337,138 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 
 [data-testid="stTextInput"] input {
     height: 44px !important;
-
     min-height: 44px !important;
 
-    box-sizing: border-box !important;
+    border-radius: 11px !important;
 
-    border-radius: 12px !important;
-
-    border: 1px solid #cfd7e4 !important;
+    border: 1px solid #ccd5e2 !important;
 
     background: #ffffff !important;
 
-    padding:
-        0 14px !important;
+    color: #1f2937 !important;
 
     font-size: 14px !important;
+
+    padding: 0 14px !important;
+
+    box-sizing: border-box !important;
 }
 
 [data-testid="stTextInput"] input:focus {
-    border-color: #4c82e8 !important;
+    border-color: #4d82e8 !important;
 
     box-shadow:
-        0 0 0 2px
-        rgba(76, 130, 232, 0.10) !important;
+        0 0 0 2px rgba(77, 130, 232, 0.10) !important;
 }
 
 
-/* =========================================================
+/* ============================================================
    SEND BUTTON
-   ========================================================= */
+   ============================================================ */
 
 .st-key-send_button button {
     height: 44px !important;
+    min-height: 44px !important;
 
-    border-radius: 12px !important;
+    border-radius: 11px !important;
 
     background: #ff4b55 !important;
 
-    color: white !important;
+    color: #ffffff !important;
 
-    border-color: #ff4b55 !important;
+    border: 1px solid #ff4b55 !important;
 
     font-weight: 700 !important;
 }
 
 .st-key-send_button button:hover {
-    background: #ef3f49 !important;
+    background: #ed3e49 !important;
 }
 
 
-/* =========================================================
-   MIC BUTTON
-   ========================================================= */
+/* ============================================================
+   START VOICE
+   ============================================================ */
 
-.st-key-mic_button button {
-    height: 44px !important;
+.st-key-start_voice button {
+    height: 40px !important;
+    min-height: 40px !important;
 
-    border-radius: 12px !important;
+    border-radius: 10px !important;
 
-    background: #eef4ff !important;
+    background: #2563d8 !important;
 
-    color: #2563d8 !important;
+    color: #ffffff !important;
 
-    border: 1px solid #cbdcff !important;
-
-    font-size: 18px !important;
+    border: 1px solid #2563d8 !important;
 
     font-weight: 700 !important;
 }
 
-.st-key-mic_button button:hover {
-    background: #e1ebff !important;
+.st-key-start_voice button:hover {
+    background: #1d55bd !important;
 }
 
 
-/* =========================================================
-   VOICE PANEL
-   ========================================================= */
-
-.voice-panel {
-    padding: 8px 12px;
-
-    border-radius: 12px;
-
-    background: #f1f6ff;
-
-    border: 1px solid #d8e5ff;
-
-    text-align: center;
-
-    color: #315ca8;
-
-    font-size: 12px;
-
-    margin-top: 2px;
-}
-
-
-/* =========================================================
-   STOP BUTTON
-   ========================================================= */
+/* ============================================================
+   STOP VOICE
+   ============================================================ */
 
 .st-key-stop_voice button {
     height: 40px !important;
+    min-height: 40px !important;
 
     border-radius: 10px !important;
 
     background: #dc3545 !important;
 
-    color: white !important;
+    color: #ffffff !important;
 
-    border-color: #dc3545 !important;
+    border: 1px solid #dc3545 !important;
 }
 
 
-/* =========================================================
-   SPEAKING BUTTON
-   ========================================================= */
+/* ============================================================
+   STOP AI SPEAKING
+   ============================================================ */
 
 .st-key-stop_speaking button {
     height: 38px !important;
+    min-height: 38px !important;
 
-    border-radius: 10px !important;
+    border-radius: 9px !important;
 
     background: #f97316 !important;
 
-    color: white !important;
+    color: #ffffff !important;
 
-    border-color: #f97316 !important;
+    border: 1px solid #f97316 !important;
+
+    font-weight: 650 !important;
 }
 
 
-/* =========================================================
+/* ============================================================
    AUDIO INPUT
-   ========================================================= */
+   ============================================================ */
 
 [data-testid="stAudioInput"] {
     width: 100% !important;
 }
 
-[data-testid="stAudioInput"] button {
-    border-radius: 10px !important;
-}
 
-
-/* =========================================================
-   DIVIDER
-   ========================================================= */
-
-hr {
-    margin: 5px 0 !important;
-
-    border-color: #e4e8ef !important;
-}
-
-
-/* =========================================================
+/* ============================================================
    MOBILE
-   ========================================================= */
+   ============================================================ */
 
 @media (max-width: 800px) {
 
     [data-testid="stMainBlockContainer"] {
-        padding: 7px 8px 8px 8px !important;
+        padding: 7px 8px !important;
     }
 
     .siri-header {
-        min-height: 82px;
-        border-radius: 14px;
+        height: 82px;
     }
 
     .siri-icon {
@@ -553,7 +477,8 @@ hr {
 
     .siri-title {
         font-size: 26px;
-        line-height: 30px;
+        line-height: 29px;
+        height: 29px;
     }
 
     .siri-subtitle {
@@ -566,9 +491,9 @@ hr {
 }
 
 
-/* =========================================================
+/* ============================================================
    DARK MODE
-   ========================================================= */
+   ============================================================ */
 
 @media (prefers-color-scheme: dark) {
 
@@ -578,7 +503,11 @@ hr {
 
     section[data-testid="stSidebar"] {
         background: #111827 !important;
-        border-color: #273449 !important;
+        border-color: #2b374b !important;
+    }
+
+    .sidebar-brand {
+        color: #f1f5f9;
     }
 
     .siri-header {
@@ -601,11 +530,6 @@ hr {
         color: #cbd5e1;
     }
 
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        background: #111827 !important;
-        border-color: #334155 !important;
-    }
-
     .empty-title {
         color: #f8fafc;
     }
@@ -616,14 +540,8 @@ hr {
 
     [data-testid="stTextInput"] input {
         background: #111827 !important;
-        color: #f8fafc !important;
+        color: #ffffff !important;
         border-color: #475569 !important;
-    }
-
-    .st-key-mic_button button {
-        background: #172554 !important;
-        color: #93c5fd !important;
-        border-color: #315aa8 !important;
     }
 }
 
@@ -642,10 +560,12 @@ GROQ_API_KEY = os.getenv(
 ).strip()
 
 if not GROQ_API_KEY:
+
     try:
         GROQ_API_KEY = str(
             st.secrets["GROQ_API_KEY"]
         ).strip()
+
     except Exception:
         GROQ_API_KEY = ""
 
@@ -657,10 +577,12 @@ if not GROQ_API_KEY:
 client = None
 
 if GROQ_API_KEY:
+
     try:
         client = Groq(
             api_key=GROQ_API_KEY
         )
+
     except Exception:
         client = None
 
@@ -673,29 +595,18 @@ MODEL_NAME = "openai/gpt-oss-20b"
 # ============================================================
 
 SYSTEM_PROMPT = """
-You are Personal SIRI, a helpful personal AI assistant.
+You are Personal SIRI, a helpful AI assistant.
 
-Give clear, useful and natural answers.
+Be clear, friendly and practical.
 
 You can help with:
-- Programming
-- Python
-- Java
-- SQL
-- AI
-- Generative AI
-- Machine Learning
-- Cloud Computing
-- AWS
-- Linux
-- Networking
-- Aptitude
-- Interview preparation
-- Resume and placement preparation
-- College projects
+Python, Java, SQL, AI, Generative AI,
+Machine Learning, Cloud Computing, AWS,
+Linux, Networking, Aptitude, Interviews,
+Placements, Resume preparation and Projects.
 
-For technical questions, use examples and
-step-by-step explanations when useful.
+For technical questions, provide step-by-step
+explanations when useful.
 """
 
 
@@ -703,13 +614,15 @@ step-by-step explanations when useful.
 # AI RESPONSE
 # ============================================================
 
-def get_ai_response(user_message):
+def get_ai_response():
 
     if client is None:
+
         return (
             "⚠️ **Groq API is not connected.**\n\n"
-            "Please add your `GROQ_API_KEY` in "
-            "Streamlit Cloud → Manage app → Settings → Secrets."
+            "Please add `GROQ_API_KEY` in "
+            "Streamlit Cloud → Manage app → "
+            "Settings → Secrets."
         )
 
     try:
@@ -725,13 +638,6 @@ def get_ai_response(user_message):
             st.session_state.messages
         )
 
-        conversation.append(
-            {
-                "role": "user",
-                "content": user_message
-            }
-        )
-
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=conversation,
@@ -744,7 +650,7 @@ def get_ai_response(user_message):
     except Exception as error:
 
         return (
-            "⚠️ **Groq error**\n\n"
+            "⚠️ **Groq Error**\n\n"
             f"{error}"
         )
 
@@ -760,42 +666,39 @@ def save_current_chat():
 
     chat = {
         "title": st.session_state.chat_title,
+
         "messages": [
             {
                 "role": item["role"],
                 "content": item["content"]
             }
+
             for item in st.session_state.messages
         ]
     }
 
-    found = False
-
-    for i, old_chat in enumerate(
+    for index, old_chat in enumerate(
         st.session_state.history
     ):
 
-        if old_chat["title"] == \
-                st.session_state.chat_title:
+        if (
+            old_chat["title"]
+            ==
+            st.session_state.chat_title
+        ):
 
-            st.session_state.history[i] = chat
+            st.session_state.history[index] = chat
 
-            found = True
+            return
 
-            break
-
-    if not found:
-
-        st.session_state.history.append(
-            chat
-        )
+    st.session_state.history.append(chat)
 
 
 # ============================================================
 # NEW CHAT
 # ============================================================
 
-def new_chat():
+def create_new_chat():
 
     save_current_chat()
 
@@ -809,14 +712,12 @@ def new_chat():
 
     st.session_state.listening = False
 
-    st.session_state.show_voice_panel = False
-
 
 # ============================================================
-# CLEAR CHAT
+# CLEAR CURRENT CHAT
 # ============================================================
 
-def clear_chat():
+def clear_current_chat():
 
     st.session_state.messages = []
 
@@ -825,6 +726,8 @@ def clear_chat():
     st.session_state.speak_text = ""
 
     st.session_state.last_audio_hash = ""
+
+    st.session_state.listening = False
 
 
 # ============================================================
@@ -835,23 +738,25 @@ def load_chat(index):
 
     selected = st.session_state.history[index]
 
-    st.session_state.chat_title = \
+    st.session_state.chat_title = (
         selected["title"]
+    )
 
     st.session_state.messages = [
         {
             "role": item["role"],
             "content": item["content"]
         }
+
         for item in selected["messages"]
     ]
 
 
 # ============================================================
-# PROCESS MESSAGE
+# SEND MESSAGE
 # ============================================================
 
-def process_message(message):
+def send_message(message):
 
     message = message.strip()
 
@@ -865,7 +770,11 @@ def process_message(message):
         }
     )
 
-    if st.session_state.chat_title == "New Chat":
+    if (
+        st.session_state.chat_title
+        ==
+        "New Chat"
+    ):
 
         title = message[:30]
 
@@ -874,9 +783,7 @@ def process_message(message):
 
         st.session_state.chat_title = title
 
-    answer = get_ai_response(
-        message
-    )
+    answer = get_ai_response()
 
     st.session_state.messages.append(
         {
@@ -889,6 +796,7 @@ def process_message(message):
 
     if st.session_state.tts_enabled:
         st.session_state.speak_text = answer
+
     else:
         st.session_state.speak_text = ""
 
@@ -900,7 +808,7 @@ def process_message(message):
 recognizer = sr.Recognizer()
 
 
-def convert_audio_to_text(audio):
+def recognize_audio(audio):
 
     if audio is None:
         return ""
@@ -931,7 +839,7 @@ def convert_audio_to_text(audio):
     except sr.UnknownValueError:
 
         st.warning(
-            "I couldn't understand the recording."
+            "I couldn't understand your voice."
         )
 
         return ""
@@ -954,10 +862,10 @@ def convert_audio_to_text(audio):
 
 
 # ============================================================
-# TEXT TO SPEECH
+# BROWSER TEXT TO SPEECH
 # ============================================================
 
-def speak_text(text):
+def browser_speak(text):
 
     if not text:
         return
@@ -966,23 +874,27 @@ def speak_text(text):
         str(text)
     )
 
-    if st.session_state.voice_gender == "Girl":
+    if (
+        st.session_state.voice_gender
+        ==
+        "Girl"
+    ):
 
-        voice_script = """
-        let preferredVoice = voices.find(
-            v =>
+        voice_code = """
+        let selectedVoice = voices.find(
+            voice =>
             /female|zira|samantha|susan|aria|hazel/i
-            .test(v.name)
+            .test(voice.name)
         );
         """
 
     else:
 
-        voice_script = """
-        let preferredVoice = voices.find(
-            v =>
+        voice_code = """
+        let selectedVoice = voices.find(
+            voice =>
             /male|david|mark|george/i
-            .test(v.name)
+            .test(voice.name)
         );
         """
 
@@ -1000,36 +912,35 @@ def speak_text(text):
 
             window.speechSynthesis.cancel();
 
-            const utterance =
+            const speech =
                 new SpeechSynthesisUtterance(
                     siriText
                 );
 
-            utterance.rate =
+            speech.rate =
                 {st.session_state.voice_speed};
 
-            utterance.pitch = 1;
+            speech.pitch = 1;
 
-            utterance.volume = 1;
+            speech.volume = 1;
 
             const voices =
                 window.speechSynthesis.getVoices();
 
-            {voice_script}
+            {voice_code}
 
-            if (preferredVoice) {{
-                utterance.voice =
-                    preferredVoice;
+            if (selectedVoice) {{
+                speech.voice = selectedVoice;
             }}
 
             window.speechSynthesis.speak(
-                utterance
+                speech
             );
         }}
 
         setTimeout(
             speakSiri,
-            200
+            250
         );
 
         </script>
@@ -1038,10 +949,10 @@ def speak_text(text):
 
 
 # ============================================================
-# STOP SPEECH
+# STOP SPEAKING
 # ============================================================
 
-def stop_speech():
+def stop_browser_speech():
 
     st.html(
         """
@@ -1062,17 +973,22 @@ def stop_speech():
 
 with st.sidebar:
 
-    st.markdown(
-        "### 🎙️ Personal SIRI"
+    st.html(
+        """
+        <div class="sidebar-brand">
+            🎙️ Personal SIRI
+        </div>
+
+        <div class="sidebar-description">
+            Your Personal AI Voice & Chat Assistant
+        </div>
+        """
     )
 
-    st.caption(
-        "Your AI Voice & Chat Assistant"
-    )
 
-    st.write("")
-
+    # --------------------------------------------------------
     # NEW CHAT
+    # --------------------------------------------------------
 
     if st.button(
         "➕  New Chat",
@@ -1080,12 +996,14 @@ with st.sidebar:
         key="new_chat_button"
     ):
 
-        new_chat()
+        create_new_chat()
 
         st.rerun()
 
 
+    # --------------------------------------------------------
     # HISTORY
+    # --------------------------------------------------------
 
     st.markdown(
         "##### 🕘 HISTORY"
@@ -1099,12 +1017,12 @@ with st.sidebar:
 
             title = chat["title"]
 
-            if len(title) > 24:
-                title = title[:24] + "..."
+            if len(title) > 25:
+                title = title[:25] + "..."
 
             if st.button(
                 "💬  " + title,
-                key=f"history_{index}",
+                key=f"history_button_{index}",
                 use_container_width=True
             ):
 
@@ -1119,6 +1037,10 @@ with st.sidebar:
         )
 
 
+    # --------------------------------------------------------
+    # CURRENT CHAT
+    # --------------------------------------------------------
+
     st.markdown(
         "##### 💬 CURRENT CHAT"
     )
@@ -1126,15 +1048,17 @@ with st.sidebar:
     if st.button(
         "🗑️  Clear Current Chat",
         use_container_width=True,
-        key="clear_current"
+        key="clear_current_button"
     ):
 
-        clear_chat()
+        clear_current_chat()
 
         st.rerun()
 
 
+    # --------------------------------------------------------
     # VOICE SETTINGS
+    # --------------------------------------------------------
 
     st.markdown(
         "##### 🎙️ VOICE SETTINGS"
@@ -1163,10 +1087,13 @@ with st.sidebar:
         step=0.1
     )
 
+
     st.divider()
 
 
-    # CONNECTION STATUS
+    # --------------------------------------------------------
+    # GROQ STATUS
+    # --------------------------------------------------------
 
     if client:
 
@@ -1181,12 +1108,14 @@ with st.sidebar:
         )
 
 
-    # CLEAR HISTORY
+    # --------------------------------------------------------
+    # CLEAR ALL HISTORY
+    # --------------------------------------------------------
 
     if st.button(
         "🗑️  Clear All History",
         use_container_width=True,
-        key="clear_history"
+        key="clear_history_button"
     ):
 
         st.session_state.history = []
@@ -1224,21 +1153,33 @@ st.html(
 
 
 # ============================================================
-# STATUS ROW
+# DATE / TIME / STATUS
 # ============================================================
 
-date_col, status_col, connection_col = st.columns(
+date_col, time_col, status_col = st.columns(
     [1, 1, 1]
 )
 
-now = datetime.now()
+current_time = datetime.now()
 
 
 with date_col:
 
     st.info(
-        "📅  " +
-        now.strftime("%d %b %Y")
+        "📅  "
+        + current_time.strftime(
+            "%d %b %Y"
+        )
+    )
+
+
+with time_col:
+
+    st.info(
+        "🕐  "
+        + current_time.strftime(
+            "%I:%M:%S %p"
+        )
     )
 
 
@@ -1265,37 +1206,14 @@ with status_col:
         )
 
 
-with connection_col:
-
-    if client:
-
-        st.html(
-            """
-            <div class="status-card status-connected">
-                ⚡ Groq Online
-            </div>
-            """
-        )
-
-    else:
-
-        st.html(
-            """
-            <div class="status-card status-listening">
-                🔴 API Not Connected
-            </div>
-            """
-        )
-
-
 # ============================================================
-# CHAT
+# CHAT AREA
 #
-# ONLY CHAT SCROLLS
+# ONLY THIS CONTAINER SCROLLS
 # ============================================================
 
 with st.container(
-    height=470,
+    height=410,
     border=True
 ):
 
@@ -1315,7 +1233,7 @@ with st.container(
 
                 <div class="empty-text">
                     Ask me anything by typing below
-                    or use the microphone.
+                    or use Start Voice.
                 </div>
 
             </div>
@@ -1350,47 +1268,23 @@ with st.container(
 
 
 # ============================================================
-# INPUT ROW
-#
-# TEXT + MIC + SEND
+# MESSAGE + SEND
 # ============================================================
 
-text_col, mic_col, send_col = st.columns(
-    [7.0, 0.8, 1.2]
+message_col, send_col = st.columns(
+    [8.2, 1.3]
 )
 
 
-# ============================================================
-# TEXT INPUT
-# ============================================================
-
-with text_col:
+with message_col:
 
     user_message = st.text_input(
         "Message Personal SIRI",
-        placeholder="Message Personal SIRI...",
+        placeholder="💬 Message Personal SIRI...",
         label_visibility="collapsed",
-        key="user_message"
+        key="message_input"
     )
 
-
-# ============================================================
-# MICROPHONE
-# ============================================================
-
-with mic_col:
-
-    mic_clicked = st.button(
-        "🎙️",
-        key="mic_button",
-        help="Use microphone",
-        use_container_width=True
-    )
-
-
-# ============================================================
-# SEND
-# ============================================================
 
 with send_col:
 
@@ -1403,27 +1297,14 @@ with send_col:
 
 
 # ============================================================
-# MIC CLICK
-# ============================================================
-
-if mic_clicked:
-
-    st.session_state.show_voice_panel = True
-
-    st.session_state.listening = True
-
-    st.rerun()
-
-
-# ============================================================
-# SEND TEXT
+# SEND MESSAGE
 # ============================================================
 
 if send_clicked:
 
     if user_message.strip():
 
-        process_message(
+        send_message(
             user_message
         )
 
@@ -1431,77 +1312,90 @@ if send_clicked:
 
 
 # ============================================================
-# DYNAMIC VOICE PANEL
+# START VOICE
 # ============================================================
 
-if st.session_state.show_voice_panel:
+voice_left, voice_center, voice_right = st.columns(
+    [1, 4, 1]
+)
 
-    st.html(
-        """
-        <div class="voice-panel">
-            🎙️ Microphone mode active —
-            record your message below.
-        </div>
-        """
-    )
 
+with voice_center:
+
+    if not st.session_state.listening:
+
+        start_voice_clicked = st.button(
+            "🎙️  Start Voice",
+            key="start_voice",
+            use_container_width=True
+        )
+
+        if start_voice_clicked:
+
+            st.session_state.listening = True
+
+            st.rerun()
+
+    else:
+
+        stop_voice_clicked = st.button(
+            "⏹️  Stop Listening",
+            key="stop_voice",
+            use_container_width=True
+        )
+
+        if stop_voice_clicked:
+
+            st.session_state.listening = False
+
+            st.rerun()
+
+
+# ============================================================
+# VOICE RECORDING
+# ============================================================
+
+if st.session_state.listening:
 
     audio_value = st.audio_input(
         "🎤 Record your message",
-        label_visibility="visible",
-        key="voice_recorder"
+        key=f"audio_input_{st.session_state.audio_key}"
     )
-
-
-    # STOP LISTENING
-
-    if st.button(
-        "⏹️ Stop Listening",
-        key="stop_voice",
-        use_container_width=True
-    ):
-
-        st.session_state.listening = False
-
-        st.session_state.show_voice_panel = False
-
-        st.rerun()
-
-
-    # PROCESS RECORDING
 
     if audio_value is not None:
 
-        audio_bytes = audio_value.getvalue()
+        audio_bytes = (
+            audio_value.getvalue()
+        )
 
-        current_hash = hashlib.md5(
+        audio_hash = hashlib.md5(
             audio_bytes
         ).hexdigest()
 
         if (
-            current_hash
+            audio_hash
             != st.session_state.last_audio_hash
         ):
 
             st.session_state.last_audio_hash = (
-                current_hash
+                audio_hash
             )
 
             recognized_text = (
-                convert_audio_to_text(
+                recognize_audio(
                     audio_value
                 )
             )
 
             st.session_state.listening = False
 
-            st.session_state.show_voice_panel = False
-
             if recognized_text:
 
-                process_message(
+                send_message(
                     recognized_text
                 )
+
+                st.session_state.audio_key += 1
 
                 st.rerun()
 
@@ -1519,12 +1413,12 @@ if st.session_state.speak_text:
     with center:
 
         if st.button(
-            "⏹️ Stop AI Speaking",
+            "⏹️  Stop AI Speaking",
             key="stop_speaking",
             use_container_width=True
         ):
 
-            stop_speech()
+            stop_browser_speech()
 
             st.session_state.speak_text = ""
 
@@ -1543,6 +1437,6 @@ if st.session_state.speak_text:
 
     st.session_state.speak_text = ""
 
-    speak_text(
+    browser_speak(
         response_text
     )
