@@ -1,7 +1,6 @@
 groq   # acess open source LLM
 SpeechRecognition
 pyttsx3
-pyaudio
 python-dotenv
 streamlit
 
