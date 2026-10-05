@@ -5,7 +5,8 @@
 
 import os
 import io
-import base64
+import json
+import hashlib
 from datetime import datetime
 
 import streamlit as st
@@ -14,18 +15,20 @@ from groq import Groq
 
 
 # ============================================================
-# OPTIONAL DOTENV
+# OPTIONAL .ENV
 # ============================================================
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
+
 except Exception:
     pass
 
 
 # ============================================================
-# PAGE CONFIG
+# STREAMLIT CONFIG
 # ============================================================
 
 st.set_page_config(
@@ -38,6 +41,9 @@ st.set_page_config(
 
 # ============================================================
 # SESSION STATE
+# IMPORTANT:
+# DO NOT CREATE A SESSION VARIABLE WITH THE SAME
+# NAME AS A WIDGET KEY.
 # ============================================================
 
 if "messages" not in st.session_state:
@@ -67,15 +73,11 @@ if "last_audio_hash" not in st.session_state:
 if "speak_text" not in st.session_state:
     st.session_state.speak_text = ""
 
-if "stop_speaking" not in st.session_state:
-    st.session_state.stop_speaking = False
-
 
 # ============================================================
 # CSS
-# IMPORTANT:
-# ONLY CSS HERE
-# NO HTML UI
+# ONLY CSS IS INSIDE st.markdown
+# NO UI HTML
 # ============================================================
 
 st.markdown(
@@ -83,7 +85,7 @@ st.markdown(
     <style>
 
     /* =====================================================
-       PAGE
+       GLOBAL
        ===================================================== */
 
     html,
@@ -103,16 +105,15 @@ st.markdown(
     [data-testid="stMainBlockContainer"] {
         max-width: 1220px !important;
         margin: 0 auto !important;
-        padding: 18px 18px 10px 18px !important;
+        padding: 12px 18px 8px 18px !important;
     }
 
-    /* Hide Streamlit branding */
     #MainMenu {
-        visibility: hidden;
+        display: none !important;
     }
 
     footer {
-        visibility: hidden;
+        display: none !important;
     }
 
     [data-testid="stDecoration"] {
@@ -121,55 +122,55 @@ st.markdown(
 
 
     /* =====================================================
-       REDUCE STREAMLIT SPACING
+       STREAMLIT SPACING
        ===================================================== */
 
     [data-testid="stVerticalBlock"] {
-        gap: 0.35rem !important;
+        gap: 0.25rem !important;
     }
 
     [data-testid="stHorizontalBlock"] {
-        gap: 0.6rem !important;
+        gap: 0.55rem !important;
     }
 
 
     /* =====================================================
-       TITLE
+       HEADER
        ===================================================== */
 
-    [data-testid="stTitle"] {
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: #d9e0ea !important;
+        border-radius: 12px !important;
+        background: #ffffff !important;
+    }
+
+    [data-testid="stVerticalBlockBorderWrapper"] h1 {
         color: #2563d8 !important;
-        font-size: 32px !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 30px !important;
         font-weight: 800 !important;
         text-align: center !important;
         margin: 0 !important;
         padding: 0 !important;
-        line-height: 1.2 !important;
+        line-height: 1.15 !important;
     }
 
+    [data-testid="stVerticalBlockBorderWrapper"]
     [data-testid="stCaptionContainer"] {
-        color: #7b8797;
+        text-align: center !important;
+        color: #7b8797 !important;
+        font-size: 11px !important;
+        margin: 0 !important;
     }
 
 
     /* =====================================================
-       HEADER BORDER
-       ===================================================== */
-
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 12px !important;
-        border-color: #d9e0ea !important;
-        background: #ffffff !important;
-    }
-
-
-    /* =====================================================
-       CHAT
+       CHAT MESSAGES
        ===================================================== */
 
     [data-testid="stChatMessage"] {
-        padding-top: 6px !important;
-        padding-bottom: 6px !important;
+        padding-top: 5px !important;
+        padding-bottom: 5px !important;
         margin-top: 2px !important;
         margin-bottom: 2px !important;
         border-radius: 10px !important;
@@ -177,7 +178,7 @@ st.markdown(
 
     [data-testid="stChatMessageContent"] {
         font-size: 14px !important;
-        line-height: 1.5 !important;
+        line-height: 1.45 !important;
     }
 
 
@@ -203,7 +204,9 @@ st.markdown(
 
     [data-testid="stTextInput"] input:focus {
         border-color: #2563d8 !important;
-        box-shadow: 0 0 0 2px rgba(37, 99, 216, 0.10) !important;
+        box-shadow:
+            0 0 0 2px
+            rgba(37, 99, 216, 0.10) !important;
     }
 
 
@@ -229,7 +232,7 @@ st.markdown(
 
 
     /* =====================================================
-       SEND
+       SEND BUTTON
        ===================================================== */
 
     .st-key-send_button button {
@@ -258,6 +261,7 @@ st.markdown(
 
     .st-key-start_voice button:hover {
         background: #1d4fb0 !important;
+        border-color: #1d4fb0 !important;
     }
 
 
@@ -295,7 +299,7 @@ st.markdown(
     }
 
     section[data-testid="stSidebar"] .block-container {
-        padding: 20px 15px 15px 15px !important;
+        padding: 18px 15px 12px 15px !important;
     }
 
     section[data-testid="stSidebar"] h3 {
@@ -306,12 +310,19 @@ st.markdown(
         margin: 0 !important;
     }
 
+    section[data-testid="stSidebar"]
+    [data-testid="stCaptionContainer"] {
+        text-align: center !important;
+        color: #8993a1 !important;
+        font-size: 10px !important;
+    }
+
     section[data-testid="stSidebar"] h5 {
         color: #697386 !important;
         font-size: 10px !important;
         font-weight: 800 !important;
         letter-spacing: 0.4px !important;
-        margin: 14px 0 5px 0 !important;
+        margin: 12px 0 5px 0 !important;
     }
 
     section[data-testid="stSidebar"] .stButton > button {
@@ -319,6 +330,20 @@ st.markdown(
         min-height: 38px !important;
         font-size: 12px !important;
         border-radius: 9px !important;
+    }
+
+    section[data-testid="stSidebar"] hr {
+        margin: 8px 0 !important;
+    }
+
+
+    /* =====================================================
+       AUDIO INPUT
+       ===================================================== */
+
+    [data-testid="stAudioInput"] {
+        margin-top: 4px !important;
+        margin-bottom: 4px !important;
     }
 
 
@@ -329,11 +354,11 @@ st.markdown(
     @media (max-width: 900px) {
 
         [data-testid="stMainBlockContainer"] {
-            padding: 12px 10px 8px 10px !important;
+            padding: 8px 10px 5px 10px !important;
         }
 
-        [data-testid="stTitle"] {
-            font-size: 26px !important;
+        [data-testid="stVerticalBlockBorderWrapper"] h1 {
+            font-size: 25px !important;
         }
 
     }
@@ -345,27 +370,47 @@ st.markdown(
 
 
 # ============================================================
-# GROQ
+# GROQ CONFIGURATION
 # ============================================================
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_API_KEY = os.getenv(
+    "GROQ_API_KEY",
+    ""
+)
 
+
+# Streamlit Cloud Secrets
 if not GROQ_API_KEY:
+
     try:
-        GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+
+        GROQ_API_KEY = st.secrets[
+            "GROQ_API_KEY"
+        ]
+
     except Exception:
+
         GROQ_API_KEY = ""
 
 
 client = None
 
+
 if GROQ_API_KEY:
 
     try:
+
         client = Groq(
             api_key=GROQ_API_KEY
         )
+
     except Exception as e:
+
+        print(
+            "Groq initialization error:",
+            e
+        )
+
         client = None
 
 
@@ -405,8 +450,8 @@ def get_ai_response(user_message):
 
         return (
             "⚠️ Groq API key is not configured.\n\n"
-            "Please add GROQ_API_KEY to Streamlit "
-            "Cloud Secrets."
+            "Please add GROQ_API_KEY to "
+            "Streamlit Cloud Secrets."
         )
 
     try:
@@ -441,7 +486,12 @@ def get_ai_response(user_message):
             max_tokens=1200
         )
 
-        return response.choices[0].message.content
+        return (
+            response
+            .choices[0]
+            .message
+            .content
+        )
 
     except Exception as e:
 
@@ -460,7 +510,7 @@ def save_current_chat():
     if not st.session_state.messages:
         return
 
-    messages_copy = [
+    copied_messages = [
         {
             "role": item["role"],
             "content": item["content"]
@@ -470,7 +520,7 @@ def save_current_chat():
 
     new_chat = {
         "title": st.session_state.chat_title,
-        "messages": messages_copy
+        "messages": copied_messages
     }
 
     found = False
@@ -489,6 +539,7 @@ def save_current_chat():
             )
 
             found = True
+
             break
 
     if not found:
@@ -539,10 +590,12 @@ def load_chat(index):
 
     save_current_chat()
 
-    selected = st.session_state.history[index]
+    selected_chat = (
+        st.session_state.history[index]
+    )
 
     st.session_state.chat_title = (
-        selected["title"]
+        selected_chat["title"]
     )
 
     st.session_state.messages = [
@@ -550,7 +603,7 @@ def load_chat(index):
             "role": item["role"],
             "content": item["content"]
         }
-        for item in selected["messages"]
+        for item in selected_chat["messages"]
     ]
 
 
@@ -580,11 +633,17 @@ def process_message(message):
         title = message[:28]
 
         if len(message) > 28:
-            title += "..."
+
+            title = (
+                title
+                + "..."
+            )
 
         st.session_state.chat_title = title
 
-    answer = get_ai_response(message)
+    answer = get_ai_response(
+        message
+    )
 
     st.session_state.messages.append(
         {
@@ -596,53 +655,65 @@ def process_message(message):
     save_current_chat()
 
     if st.session_state.tts_enabled:
+
         st.session_state.speak_text = answer
+
     else:
+
         st.session_state.speak_text = ""
 
 
 # ============================================================
-# BROWSER TEXT TO SPEECH
+# BROWSER TEXT-TO-SPEECH
 # ============================================================
 
-def browser_speak(text, gender, speed):
+def browser_speak(
+    text,
+    gender,
+    speed
+):
 
     if not text:
         return
 
-    # Escape characters safely for JavaScript
-    safe_text = (
-        text
-        .replace("\\", "\\\\")
-        .replace("`", "\\`")
-        .replace("${", "\\${")
+    safe_text = json.dumps(
+        str(text)
     )
 
     if gender == "Girl":
 
-        voice_code = """
-        let preferred =
-            voices.find(v =>
+        voice_selection = """
+        let preferredVoice =
+            voices.find(
+                voice =>
                 /female|zira|samantha|susan|aria|hazel/i
-                .test(v.name)
+                .test(voice.name)
             );
         """
 
     else:
 
-        voice_code = """
-        let preferred =
-            voices.find(v =>
+        voice_selection = """
+        let preferredVoice =
+            voices.find(
+                voice =>
                 /male|david|mark|george/i
-                .test(v.name)
+                .test(voice.name)
             );
         """
 
     st.components.v1.html(
         f"""
+        <!DOCTYPE html>
+
+        <html>
+
+        <body>
+
         <script>
 
-        const text = `{safe_text}`;
+        const text =
+            {safe_text};
 
         function speakText() {{
 
@@ -653,19 +724,25 @@ def browser_speak(text, gender, speed):
             window.speechSynthesis.cancel();
 
             const utterance =
-                new SpeechSynthesisUtterance(text);
+                new SpeechSynthesisUtterance(
+                    text
+                );
 
-            utterance.rate = {speed};
-            utterance.pitch = 1;
-            utterance.volume = 1;
+            utterance.rate =
+                {float(speed)};
+
+            utterance.pitch = 1.0;
+
+            utterance.volume = 1.0;
 
             const voices =
                 window.speechSynthesis.getVoices();
 
-            {voice_code}
+            {voice_selection}
 
-            if (preferred) {{
-                utterance.voice = preferred;
+            if (preferredVoice) {{
+                utterance.voice =
+                    preferredVoice;
             }}
 
             window.speechSynthesis.speak(
@@ -675,10 +752,14 @@ def browser_speak(text, gender, speed):
 
         setTimeout(
             speakText,
-            150
+            200
         );
 
         </script>
+
+        </body>
+
+        </html>
         """,
         height=1
     )
@@ -692,13 +773,27 @@ def stop_browser_speech():
 
     st.components.v1.html(
         """
+        <!DOCTYPE html>
+
+        <html>
+
+        <body>
+
         <script>
 
-        if (window.speechSynthesis) {
+        if (
+            window.speechSynthesis
+        ) {
+
             window.speechSynthesis.cancel();
+
         }
 
         </script>
+
+        </body>
+
+        </html>
         """,
         height=1
     )
@@ -711,32 +806,45 @@ def stop_browser_speech():
 recognizer = sr.Recognizer()
 
 
-def convert_audio_to_text(audio_file):
+def convert_audio_to_text(
+    audio_file
+):
 
     if audio_file is None:
+
         return ""
 
     try:
 
-        audio_bytes = audio_file.getvalue()
+        audio_bytes = (
+            audio_file.getvalue()
+        )
 
         if not audio_bytes:
+
             return ""
 
-        audio_buffer = io.BytesIO(
-            audio_bytes
+        audio_buffer = (
+            io.BytesIO(
+                audio_bytes
+            )
         )
 
         with sr.AudioFile(
             audio_buffer
         ) as source:
 
-            audio_data = recognizer.record(
-                source
+            audio_data = (
+                recognizer.record(
+                    source
+                )
             )
 
-        text = recognizer.recognize_google(
-            audio_data
+        text = (
+            recognizer
+            .recognize_google(
+                audio_data
+            )
         )
 
         return text.strip()
@@ -744,8 +852,8 @@ def convert_audio_to_text(audio_file):
     except sr.UnknownValueError:
 
         st.warning(
-            "I could not understand your voice. "
-            "Please try again."
+            "I couldn't understand "
+            "your voice. Please try again."
         )
 
         return ""
@@ -753,7 +861,7 @@ def convert_audio_to_text(audio_file):
     except sr.RequestError:
 
         st.error(
-            "Google speech recognition service "
+            "Speech recognition service "
             "is unavailable."
         )
 
@@ -816,6 +924,7 @@ with st.sidebar:
             title = chat["title"]
 
             if len(title) > 22:
+
                 title = (
                     title[:22]
                     + "..."
@@ -864,14 +973,18 @@ with st.sidebar:
         "##### 🎙️ VOICE SETTINGS"
     )
 
-    st.session_state.tts_enabled = st.checkbox(
+    voice_response = st.checkbox(
         "Voice Response",
         value=st.session_state.tts_enabled,
         key="voice_response_checkbox"
     )
 
+    st.session_state.tts_enabled = (
+        voice_response
+    )
 
-    st.session_state.voice_gender = st.radio(
+
+    voice_gender = st.radio(
         "Voice",
         ["Girl", "Boy"],
         index=(
@@ -883,13 +996,22 @@ with st.sidebar:
         key="voice_gender_radio"
     )
 
+    st.session_state.voice_gender = (
+        voice_gender
+    )
 
-    st.session_state.voice_speed = st.slider(
+
+    voice_speed = st.slider(
         "Speech Speed",
         min_value=0.7,
         max_value=1.4,
         value=st.session_state.voice_speed,
-        step=0.1
+        step=0.1,
+        key="speech_speed_slider"
+    )
+
+    st.session_state.voice_speed = (
+        voice_speed
     )
 
 
@@ -897,7 +1019,7 @@ with st.sidebar:
 
 
     # --------------------------------------------------------
-    # CLEAR HISTORY
+    # CLEAR ALL HISTORY
     # --------------------------------------------------------
 
     if st.button(
@@ -937,18 +1059,24 @@ date_col, time_col, status_col = st.columns(
     [2, 2, 1]
 )
 
-now = datetime.now()
+current_time = datetime.now()
 
 with date_col:
 
     st.caption(
-        f"📅 {now.strftime('%d %b %Y')}"
+        "📅 "
+        + current_time.strftime(
+            "%d %b %Y"
+        )
     )
 
 with time_col:
 
     st.caption(
-        f"🕐 {now.strftime('%I:%M:%S %p')}"
+        "🕐 "
+        + current_time.strftime(
+            "%I:%M:%S %p"
+        )
     )
 
 with status_col:
@@ -968,7 +1096,6 @@ with status_col:
 
 # ============================================================
 # CHAT AREA
-# ONLY CHAT AREA SCROLLS
 # ============================================================
 
 chat_area = st.container(
@@ -980,25 +1107,36 @@ with chat_area:
 
     if not st.session_state.messages:
 
-        st.markdown("")
+        st.write("")
 
-        st.markdown("")
+        st.write("")
 
-        st.markdown(
-            "## 🎙️ How can I help you?"
+        st.write("")
+
+        center_left, center, center_right = (
+            st.columns([1, 2, 1])
         )
 
-        st.caption(
-            "Type a message below or use 🎙️ Start Voice."
-        )
+        with center:
 
-        st.info(
-            "Your intelligent Personal SIRI assistant is ready."
-        )
+            st.markdown(
+                "## 🎙️ How can I help you?"
+            )
+
+            st.caption(
+                "Type a message below or use 🎙️ Start Voice."
+            )
+
+            st.info(
+                "Your intelligent Personal SIRI "
+                "assistant is ready."
+            )
 
     else:
 
-        for message in st.session_state.messages:
+        for message in (
+            st.session_state.messages
+        ):
 
             if message["role"] == "user":
 
@@ -1024,7 +1162,7 @@ with chat_area:
 
 
 # ============================================================
-# TEXT INPUT
+# MESSAGE INPUT
 # ============================================================
 
 input_col, send_col = st.columns(
@@ -1052,7 +1190,7 @@ with send_col:
 
 
 # ============================================================
-# SEND
+# SEND MESSAGE
 # ============================================================
 
 if send_clicked:
@@ -1067,11 +1205,11 @@ if send_clicked:
 
 
 # ============================================================
-# VOICE BUTTON
+# VOICE CONTROL
 # ============================================================
 
-voice_left, voice_center, voice_right = st.columns(
-    [1, 2, 1]
+voice_left, voice_center, voice_right = (
+    st.columns([1, 2, 1])
 )
 
 with voice_center:
@@ -1112,7 +1250,8 @@ with voice_center:
 if st.session_state.listening:
 
     st.info(
-        "🎙️ Click the microphone button below and speak."
+        "🎙️ Click the microphone button below "
+        "and speak."
     )
 
     audio_value = st.audio_input(
@@ -1122,11 +1261,13 @@ if st.session_state.listening:
 
     if audio_value is not None:
 
-        audio_bytes = audio_value.getvalue()
-
-        audio_hash = str(
-            hash(audio_bytes)
+        audio_bytes = (
+            audio_value.getvalue()
         )
+
+        audio_hash = hashlib.md5(
+            audio_bytes
+        ).hexdigest()
 
         if (
             audio_hash
@@ -1155,7 +1296,7 @@ if st.session_state.listening:
 
 
 # ============================================================
-# AI VOICE OUTPUT
+# AI SPEECH
 # ============================================================
 
 if st.session_state.speak_text:
@@ -1164,6 +1305,8 @@ if st.session_state.speak_text:
         st.session_state.speak_text
     )
 
+    # Clear BEFORE rendering speech
+    # so it doesn't repeatedly speak
     st.session_state.speak_text = ""
 
     browser_speak(
@@ -1175,10 +1318,12 @@ if st.session_state.speak_text:
 
 # ============================================================
 # STOP AI SPEAKING
+# IMPORTANT:
+# THERE IS NO st.session_state.stop_speaking
 # ============================================================
 
-stop_col1, stop_col2, stop_col3 = st.columns(
-    [1, 2, 1]
+stop_col1, stop_col2, stop_col3 = (
+    st.columns([1, 2, 1])
 )
 
 with stop_col2:
