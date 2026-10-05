@@ -1,6 +1,4 @@
-groq   # acess open source LLM
+groq
 SpeechRecognition
-pyttsx3
 python-dotenv
-streamlit
-
+streamlit>=1.65.0

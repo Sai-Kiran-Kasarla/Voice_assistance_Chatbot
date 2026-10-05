@@ -1,14 +1,14 @@
 # ============================================================
-# PERSONAL SIRI - STATIC CHAT UI
+# PERSONAL SIRI - STREAMLIT CLOUD VERSION
+# AI CHAT + BROWSER VOICE INPUT + BROWSER VOICE OUTPUT
 # ============================================================
 
 import os
-import threading
+import html
 from datetime import datetime
 
 import streamlit as st
 import speech_recognition as sr
-import pyttsx3
 from groq import Groq
 
 
@@ -45,6 +45,11 @@ defaults = {
     "chat_title": "New Chat",
     "tts_enabled": True,
     "voice_gender": "Girl",
+    "voice_speed": 1.0,
+    "listening": False,
+    "speech_text": "",
+    "last_audio_id": None,
+    "last_spoken_message": "",
 }
 
 for key, value in defaults.items():
@@ -54,54 +59,37 @@ for key, value in defaults.items():
 
 # ============================================================
 # CSS
-#
-# IMPORTANT:
-# This is ONLY CSS.
-# There is NO visible HTML interface below.
 # ============================================================
 
 st.markdown(
     """
     <style>
 
-    /* ======================================================
+    /* =====================================================
        GLOBAL
-       ====================================================== */
+       ===================================================== */
 
     html,
     body {
         margin: 0 !important;
         padding: 0 !important;
         height: 100% !important;
-        overflow: hidden !important;
     }
 
     [data-testid="stAppViewContainer"] {
-        height: 100vh !important;
-        overflow: hidden !important;
         background: #f5f7fb !important;
     }
 
     [data-testid="stMain"] {
-        height: 100vh !important;
-        overflow: hidden !important;
         background: #f5f7fb !important;
     }
 
     [data-testid="stMainBlockContainer"] {
-        box-sizing: border-box !important;
         max-width: 1220px !important;
-        height: calc(100vh - 50px) !important;
-
         margin: 0 auto !important;
-
-        padding:
-            8px 18px 4px 18px !important;
-
-        overflow: hidden !important;
+        padding: 8px 18px 8px 18px !important;
     }
 
-    /* Hide only Streamlit branding */
     #MainMenu {
         display: none !important;
     }
@@ -115,12 +103,12 @@ st.markdown(
     }
 
 
-    /* ======================================================
-       COMPACT STREAMLIT SPACING
-       ====================================================== */
+    /* =====================================================
+       SPACING
+       ===================================================== */
 
     [data-testid="stVerticalBlock"] {
-        gap: 0.15rem !important;
+        gap: 0.25rem !important;
     }
 
     [data-testid="stHorizontalBlock"] {
@@ -128,74 +116,59 @@ st.markdown(
     }
 
 
-    /* ======================================================
+    /* =====================================================
        MAIN TITLE
-       ====================================================== */
+       ===================================================== */
 
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        border-color: #d9e0ea !important;
-        border-radius: 12px !important;
-        background: #ffffff !important;
+    .main-title {
+        text-align: center;
+        padding: 4px 0 2px 0;
     }
 
-    .main-title-container h1 {
-        color: #2563d8 !important;
-        font-family: Arial, Helvetica, sans-serif !important;
-        font-size: 31px !important;
-        font-weight: 800 !important;
-        text-align: center !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1.1 !important;
+    .main-title h1 {
+        color: #2563d8;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 31px;
+        font-weight: 800;
+        margin: 0;
+        line-height: 1.1;
     }
 
-
-    /* ======================================================
-       TITLE / HEADER NATIVE CONTAINER
-       ====================================================== */
-
-    [data-testid="stVerticalBlockBorderWrapper"]
-    h1 {
-        color: #2563d8 !important;
-        font-size: 30px !important;
-        font-weight: 800 !important;
-        text-align: center !important;
-        line-height: 1.1 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    [data-testid="stVerticalBlockBorderWrapper"]
-    [data-testid="stCaptionContainer"] {
-        text-align: center !important;
-        color: #7b8797 !important;
-        font-size: 11px !important;
-        margin: 0 !important;
+    .main-title p {
+        color: #7b8797;
+        font-size: 11px;
+        margin: 3px 0 0 0;
     }
 
 
-    /* ======================================================
-       STATUS TEXT
-       ====================================================== */
+    /* =====================================================
+       STATUS
+       ===================================================== */
 
-    .status-text {
-        font-size: 12px !important;
-        color: #687386 !important;
+    .status-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 22px;
+        color: #687386;
+        font-size: 11px;
+        margin: 2px 0 5px 0;
+    }
+
+    .ready {
+        color: #15803d;
+        font-weight: 700;
+    }
+
+    .listening {
+        color: #dc2626;
+        font-weight: 700;
     }
 
 
-    /* ======================================================
-       CHAT CONTAINER
-       ====================================================== */
-
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        box-sizing: border-box !important;
-    }
-
-
-    /* ======================================================
-       CHAT MESSAGES
-       ====================================================== */
+    /* =====================================================
+       CHAT
+       ===================================================== */
 
     [data-testid="stChatMessage"] {
         padding-top: 5px !important;
@@ -211,31 +184,37 @@ st.markdown(
     }
 
 
-    /* ======================================================
-       WELCOME SCREEN
-       ====================================================== */
+    /* =====================================================
+       WELCOME
+       ===================================================== */
 
-    .welcome-native {
-        text-align: center !important;
-        padding-top: 60px !important;
+    .welcome-box {
+        text-align: center;
+        padding: 55px 20px 35px 20px;
     }
 
-    .welcome-native h2 {
-        color: #292e3b !important;
-        font-size: 34px !important;
-        font-weight: 800 !important;
-        margin: 8px 0 5px 0 !important;
+    .welcome-box .icon {
+        font-size: 42px;
+        margin-bottom: 4px;
     }
 
-    .welcome-native p {
-        color: #4d5b70 !important;
-        font-size: 14px !important;
+    .welcome-box h2 {
+        color: #292e3b;
+        font-size: 30px;
+        font-weight: 800;
+        margin: 4px 0;
+    }
+
+    .welcome-box p {
+        color: #64748b;
+        font-size: 13px;
+        margin: 5px 0;
     }
 
 
-    /* ======================================================
+    /* =====================================================
        INPUT
-       ====================================================== */
+       ===================================================== */
 
     [data-testid="stTextInput"] {
         margin: 0 !important;
@@ -244,235 +223,177 @@ st.markdown(
     [data-testid="stTextInput"] input {
         height: 44px !important;
         min-height: 44px !important;
-
         border-radius: 10px !important;
-
         border: 1px solid #d5dce6 !important;
-
         background: #ffffff !important;
-
         color: #202633 !important;
-
         font-size: 14px !important;
-
         padding-left: 14px !important;
-
         box-shadow: none !important;
     }
 
     [data-testid="stTextInput"] input:focus {
         border-color: #2563d8 !important;
-
-        box-shadow:
-            0 0 0 2px
-            rgba(37, 99, 216, 0.10) !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 216, 0.10) !important;
     }
 
 
-    /* ======================================================
+    /* =====================================================
        BUTTONS
-       ====================================================== */
+       ===================================================== */
 
     .stButton > button {
-        height: 44px !important;
-        min-height: 44px !important;
-
+        height: 42px !important;
+        min-height: 42px !important;
         border-radius: 10px !important;
-
         font-size: 13px !important;
-
         font-weight: 600 !important;
-
         border: 1px solid #d5dce6 !important;
-
         background: #ffffff !important;
-
         color: #26364c !important;
-
         box-shadow: none !important;
-
-        transition: none !important;
     }
 
     .stButton > button:hover {
-        transform: none !important;
+        border-color: #2563d8 !important;
     }
 
 
-    /* ======================================================
-       SEND BUTTON
-       ====================================================== */
+    /* =====================================================
+       SEND
+       ===================================================== */
 
     .st-key-send_button button {
         background: #ff4b50 !important;
-
         border-color: #ff4b50 !important;
-
         color: #ffffff !important;
-
         font-weight: 700 !important;
     }
 
     .st-key-send_button button:hover {
         background: #e83e45 !important;
-
         border-color: #e83e45 !important;
-
-        color: #ffffff !important;
     }
 
 
-    /* ======================================================
-       START VOICE
-       ====================================================== */
+    /* =====================================================
+       VOICE
+       ===================================================== */
 
     .st-key-start_voice button {
         background: #2563d8 !important;
-
         border-color: #2563d8 !important;
-
-        color: #ffffff !important;
-
+        color: white !important;
         font-weight: 700 !important;
     }
-
-    .st-key-start_voice button:hover {
-        background: #1d4fb0 !important;
-
-        border-color: #1d4fb0 !important;
-
-        color: #ffffff !important;
-    }
-
-
-    /* ======================================================
-       STOP LISTENING
-       ====================================================== */
 
     .st-key-stop_voice button {
         background: #dc3545 !important;
-
         border-color: #dc3545 !important;
-
-        color: #ffffff !important;
-
+        color: white !important;
         font-weight: 700 !important;
     }
-
-
-    /* ======================================================
-       STOP SPEAKING
-       ====================================================== */
 
     .st-key-stop_speaking button {
         background: #ef4444 !important;
-
         border-color: #ef4444 !important;
-
-        color: #ffffff !important;
-
+        color: white !important;
         font-weight: 700 !important;
     }
 
 
-    /* ======================================================
+    /* =====================================================
        SIDEBAR
-       ====================================================== */
+       ===================================================== */
 
     section[data-testid="stSidebar"] {
         background: #ffffff !important;
-
-        border-right:
-            1px solid #dce2ea !important;
+        border-right: 1px solid #dce2ea !important;
     }
 
-    section[data-testid="stSidebar"]
-    .block-container {
-        padding:
-            18px 15px 12px 15px !important;
+    section[data-testid="stSidebar"] .block-container {
+        padding: 18px 15px 12px 15px !important;
     }
 
     section[data-testid="stSidebar"] h3 {
         color: #2563d8 !important;
-
         text-align: center !important;
-
         font-size: 20px !important;
-
         font-weight: 800 !important;
-
-        margin:
-            0 0 0 0 !important;
+        margin: 0 !important;
     }
 
-    section[data-testid="stSidebar"]
-    [data-testid="stCaptionContainer"] {
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
         text-align: center !important;
-
         color: #8993a1 !important;
-
         font-size: 10px !important;
     }
 
     section[data-testid="stSidebar"] h5 {
         color: #697386 !important;
-
         font-size: 10px !important;
-
         font-weight: 800 !important;
-
         letter-spacing: 0.4px !important;
-
-        margin:
-            12px 0 5px 0 !important;
+        margin: 12px 0 5px 0 !important;
     }
 
-    section[data-testid="stSidebar"]
-    .stButton > button {
+    section[data-testid="stSidebar"] .stButton > button {
         height: 38px !important;
-
         min-height: 38px !important;
-
         font-size: 12px !important;
-
         border-radius: 9px !important;
     }
 
     section[data-testid="stSidebar"] hr {
-        margin:
-            8px 0 !important;
+        margin: 8px 0 !important;
     }
 
 
-    /* ======================================================
+    /* =====================================================
        FOOTER
-       ====================================================== */
+       ===================================================== */
 
     .footer-native {
-        text-align: center !important;
-
-        color: #9aa3af !important;
-
-        font-size: 9px !important;
-
-        line-height: 15px !important;
+        text-align: center;
+        color: #9aa3af;
+        font-size: 9px;
+        line-height: 15px;
+        padding: 4px;
     }
 
 
-    /* ======================================================
-       SMALL SCREEN
-       ====================================================== */
+    /* =====================================================
+       AUDIO INPUT
+       ===================================================== */
+
+    [data-testid="stAudioInput"] {
+        margin-top: 4px !important;
+        margin-bottom: 4px !important;
+    }
+
+
+    /* =====================================================
+       MOBILE
+       ===================================================== */
 
     @media (max-width: 900px) {
 
         [data-testid="stMainBlockContainer"] {
-            padding:
-                6px 10px 3px 10px !important;
+            padding: 6px 10px 5px 10px !important;
         }
 
-        [data-testid="stVerticalBlockBorderWrapper"] h1 {
-            font-size: 25px !important;
+        .main-title h1 {
+            font-size: 25px;
         }
+
+        .welcome-box {
+            padding-top: 35px;
+        }
+
+        .welcome-box h2 {
+            font-size: 25px;
+        }
+
     }
 
     </style>
@@ -485,20 +406,22 @@ st.markdown(
 # GROQ
 # ============================================================
 
-GROQ_API_KEY = os.getenv(
-    "GROQ_API_KEY",
-    ""
-)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+# Streamlit Cloud Secrets support
+if not GROQ_API_KEY:
+    try:
+        GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+    except Exception:
+        GROQ_API_KEY = ""
 
 client = None
 
 if GROQ_API_KEY:
     try:
-        client = Groq(
-            api_key=GROQ_API_KEY
-        )
+        client = Groq(api_key=GROQ_API_KEY)
     except Exception as e:
-        print("Groq error:", e)
+        client = None
 
 
 MODEL_NAME = "openai/gpt-oss-20b"
@@ -511,320 +434,207 @@ and chat assistant.
 Answer clearly and naturally.
 
 Help with:
+
 Python, Java, SQL, AI, Generative AI,
 machine learning, cloud computing, AWS,
 Linux, networking, aptitude, interviews,
 placements and programming projects.
 
 Keep simple answers concise.
+
 Explain technical questions clearly.
 """
 
 
 # ============================================================
-# TEXT TO SPEECH
+# BROWSER TEXT TO SPEECH
 # ============================================================
 
-class TTSManager:
+def speak_in_browser(text, gender="Girl", speed=1.0):
+    """
+    Uses the user's browser speech engine.
 
-    def __init__(self):
+    This does NOT require pyttsx3.
+    """
 
-        self.engine = None
+    if not text:
+        return
 
-        self.thread = None
+    safe_text = html.escape(str(text))
 
-        self.lock = threading.Lock()
-
-        self.speaking = False
-
-
-    def find_voice(
-        self,
-        engine,
-        gender
-    ):
-
-        try:
-            voices = engine.getProperty(
-                "voices"
-            )
-        except Exception:
-            return None
-
-        if not voices:
-            return None
-
-        if gender == "Girl":
-            keywords = [
-                "female",
-                "zira",
-                "hazel",
-                "samantha",
-                "susan",
-                "aria"
-            ]
-        else:
-            keywords = [
-                "male",
-                "david",
-                "mark",
-                "george"
-            ]
-
-        for voice in voices:
-
-            name = str(
-                getattr(
-                    voice,
-                    "name",
-                    ""
-                )
-            ).lower()
-
-            voice_id = str(
-                getattr(
-                    voice,
-                    "id",
-                    ""
-                )
-            ).lower()
-
-            combined = (
-                name + " " + voice_id
-            )
-
-            for keyword in keywords:
-
-                if keyword in combined:
-                    return voice.id
-
-        return voices[0].id
-
-
-    def worker(
-        self,
-        text,
-        gender
-    ):
-
-        engine = None
-
-        try:
-
-            engine = pyttsx3.init()
-
-            with self.lock:
-                self.engine = engine
-
-            voice_id = self.find_voice(
-                engine,
-                gender
-            )
-
-            if voice_id:
-                engine.setProperty(
-                    "voice",
-                    voice_id
-                )
-
-            engine.setProperty(
-                "rate",
-                170
-            )
-
-            engine.setProperty(
-                "volume",
-                1.0
-            )
-
-            self.speaking = True
-
-            engine.say(text)
-
-            engine.runAndWait()
-
-        except Exception as e:
-
-            print(
-                "TTS Error:",
-                e
-            )
-
-        finally:
-
-            try:
-                if engine:
-                    engine.stop()
-            except Exception:
-                pass
-
-            with self.lock:
-                self.engine = None
-
-            self.speaking = False
-
-
-    def speak(
-        self,
-        text,
-        gender
-    ):
-
-        self.stop()
-
-        self.thread = threading.Thread(
-            target=self.worker,
-            args=(
-                text,
-                gender
-            ),
-            daemon=True
+    if gender == "Girl":
+        voice_hint = """
+        voices.find(v =>
+            /female|zira|samantha|susan|aria|hazel/i.test(v.name)
         )
+        """
+    else:
+        voice_hint = """
+        voices.find(v =>
+            /male|david|mark|george/i.test(v.name)
+        )
+        """
 
-        self.thread.start()
+    components = st.components.v1
+
+    components.html(
+        f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    overflow: hidden;
+                    height: 1px;
+                }}
+            </style>
+        </head>
+
+        <body>
+
+        <script>
+
+        const text = `{safe_text}`;
+
+        function speakNow() {{
+
+            if (!window.speechSynthesis) {{
+                return;
+            }}
+
+            window.speechSynthesis.cancel();
+
+            const utterance =
+                new SpeechSynthesisUtterance(text);
+
+            utterance.rate = {speed};
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            const voices =
+                window.speechSynthesis.getVoices();
+
+            let selectedVoice = {voice_hint};
+
+            if (selectedVoice) {{
+                utterance.voice = selectedVoice;
+            }}
+
+            window.speechSynthesis.speak(utterance);
+        }}
+
+        if (
+            window.speechSynthesis.getVoices().length
+        ) {{
+            speakNow();
+        }}
+        else {{
+            window.speechSynthesis.onvoiceschanged =
+                function() {{
+                    speakNow();
+                }};
+        }}
+
+        </script>
+
+        </body>
+        </html>
+        """,
+        height=1,
+    )
 
 
-    def stop(self):
+def stop_browser_speech():
+    """
+    Browser speech is controlled by the browser.
+    A new browser component can cancel speech.
+    """
 
-        with self.lock:
-            engine = self.engine
-
-        if engine:
-
-            try:
-                engine.stop()
-            except Exception:
-                pass
-
-        self.speaking = False
-
-
-tts_manager = TTSManager()
+    st.components.v1.html(
+        """
+        <script>
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+        </script>
+        """,
+        height=1,
+    )
 
 
 # ============================================================
 # SPEECH RECOGNITION
 # ============================================================
 
-class VoiceManager:
-
-    def __init__(self):
-
-        self.recognizer = sr.Recognizer()
-
-        self.microphone = None
-
-        self.stop_listening = None
-
-        self.active = False
-
-        self.result = ""
-
-        self.error = ""
+recognizer = sr.Recognizer()
 
 
-    def callback(
-        self,
-        recognizer,
-        audio
-    ):
+def audio_to_text(audio_file):
+    """
+    Convert Streamlit browser microphone audio
+    to text using Google Speech Recognition.
+    """
 
-        try:
+    if audio_file is None:
+        return ""
 
-            text = recognizer.recognize_google(
-                audio
-            )
+    try:
 
-            if text:
-                self.result = text
+        audio_bytes = audio_file.getvalue()
 
-        except sr.UnknownValueError:
-            pass
+        if not audio_bytes:
+            return ""
 
-        except sr.RequestError:
-            self.error = (
-                "Speech recognition service "
-                "is unavailable."
-            )
+        import io
 
-        except Exception as e:
-            self.error = str(e)
+        audio_stream = io.BytesIO(audio_bytes)
 
+        with sr.AudioFile(audio_stream) as source:
 
-    def start(self):
+            audio_data = recognizer.record(source)
 
-        if self.active:
-            return True
+        text = recognizer.recognize_google(
+            audio_data
+        )
 
-        try:
+        return text.strip()
 
-            self.result = ""
+    except sr.UnknownValueError:
 
-            self.error = ""
+        return ""
 
-            self.microphone = sr.Microphone()
+    except sr.RequestError:
 
-            with self.microphone as source:
+        st.error(
+            "Speech recognition service is unavailable."
+        )
 
-                self.recognizer.adjust_for_ambient_noise(
-                    source,
-                    duration=0.5
-                )
+        return ""
 
-            self.stop_listening = (
-                self.recognizer.listen_in_background(
-                    self.microphone,
-                    self.callback
-                )
-            )
+    except Exception as e:
 
-            self.active = True
+        st.error(
+            f"Could not process microphone audio: {e}"
+        )
 
-            return True
-
-        except Exception as e:
-
-            self.error = str(e)
-
-            self.active = False
-
-            return False
-
-
-    def stop(self):
-
-        if self.stop_listening:
-
-            try:
-
-                self.stop_listening(
-                    wait_for_stop=False
-                )
-
-            except Exception:
-                pass
-
-        self.stop_listening = None
-
-        self.active = False
-
-
-voice_manager = VoiceManager()
+        return ""
 
 
 # ============================================================
 # AI RESPONSE
 # ============================================================
 
-def get_ai_response(
-    user_message
-):
+def get_ai_response(user_message):
 
     if client is None:
 
         return (
             "⚠️ Groq API key is not configured.\n\n"
-            "Please check your `.env` file."
+            "Please add GROQ_API_KEY to Streamlit Secrets."
         )
 
     try:
@@ -856,7 +666,7 @@ def get_ai_response(
             model=MODEL_NAME,
             messages=conversation,
             temperature=0.7,
-            max_tokens=1200
+            max_tokens=1200,
         )
 
         return response.choices[0].message.content
@@ -923,12 +733,20 @@ def create_new_chat():
 
     st.session_state.chat_title = "New Chat"
 
+    st.session_state.speech_text = ""
+
+    st.session_state.last_audio_id = None
+
 
 def clear_current_chat():
 
     st.session_state.messages = []
 
     st.session_state.chat_title = "New Chat"
+
+    st.session_state.speech_text = ""
+
+    st.session_state.last_audio_id = None
 
 
 def clear_all_history():
@@ -938,6 +756,10 @@ def clear_all_history():
     st.session_state.messages = []
 
     st.session_state.chat_title = "New Chat"
+
+    st.session_state.speech_text = ""
+
+    st.session_state.last_audio_id = None
 
 
 def load_chat(index):
@@ -959,9 +781,11 @@ def load_chat(index):
     ]
 
 
-def process_message(
-    message
-):
+# ============================================================
+# PROCESS MESSAGE
+# ============================================================
+
+def process_message(message):
 
     message = message.strip()
 
@@ -975,7 +799,10 @@ def process_message(
         }
     )
 
-    if st.session_state.chat_title == "New Chat":
+    if (
+        st.session_state.chat_title
+        == "New Chat"
+    ):
 
         title = message[:28]
 
@@ -984,9 +811,7 @@ def process_message(
 
         st.session_state.chat_title = title
 
-    answer = get_ai_response(
-        message
-    )
+    answer = get_ai_response(message)
 
     st.session_state.messages.append(
         {
@@ -997,12 +822,7 @@ def process_message(
 
     save_current_chat()
 
-    if st.session_state.tts_enabled:
-
-        tts_manager.speak(
-            answer,
-            st.session_state.voice_gender
-        )
+    st.session_state.last_spoken_message = answer
 
 
 # ============================================================
@@ -1021,7 +841,10 @@ with st.sidebar:
 
     st.write("")
 
+
+    # --------------------------------------------------------
     # NEW CHAT
+    # --------------------------------------------------------
 
     if st.button(
         "➕  New Chat",
@@ -1033,7 +856,9 @@ with st.sidebar:
         st.rerun()
 
 
+    # --------------------------------------------------------
     # HISTORY
+    # --------------------------------------------------------
 
     st.markdown(
         "##### 🕘 HISTORY"
@@ -1067,7 +892,9 @@ with st.sidebar:
         )
 
 
+    # --------------------------------------------------------
     # CURRENT CHAT
+    # --------------------------------------------------------
 
     st.markdown(
         "##### 💬 CURRENT CHAT"
@@ -1083,7 +910,9 @@ with st.sidebar:
         st.rerun()
 
 
+    # --------------------------------------------------------
     # VOICE SETTINGS
+    # --------------------------------------------------------
 
     st.markdown(
         "##### 🎙️ VOICE SETTINGS"
@@ -1117,10 +946,25 @@ with st.sidebar:
     )
 
 
+    voice_speed = st.slider(
+        "Speech Speed",
+        min_value=0.7,
+        max_value=1.4,
+        value=float(
+            st.session_state.voice_speed
+        ),
+        step=0.1
+    )
+
+    st.session_state.voice_speed = voice_speed
+
+
     st.divider()
 
 
+    # --------------------------------------------------------
     # CLEAR HISTORY
+    # --------------------------------------------------------
 
     if st.button(
         "🗑️  Clear All History",
@@ -1134,62 +978,65 @@ with st.sidebar:
 
 # ============================================================
 # MAIN TITLE
-# NATIVE STREAMLIT ONLY
 # ============================================================
 
-header = st.container(
-    border=True
+st.markdown(
+    """
+    <div class="main-title">
+        <h1>🎙️ Personal SIRI</h1>
+        <p>Your Personal AI Voice & Chat Assistant</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-with header:
-
-    st.title(
-        "🎙️ Personal SIRI"
-    )
-
-    st.caption(
-        "Your Personal AI Voice & Chat Assistant"
-    )
-
 
 # ============================================================
-# DATE / TIME / READY
+# DATE / TIME / STATUS
 # ============================================================
-
-date_col, time_col, ready_col = st.columns(
-    [2, 2, 1]
-)
 
 now = datetime.now()
 
-with date_col:
+status_class = (
+    "listening"
+    if st.session_state.listening
+    else "ready"
+)
 
-    st.caption(
-        f"📅 {now.strftime('%d %b %Y')}"
-    )
+status_text = (
+    "🔴 Listening"
+    if st.session_state.listening
+    else "🟢 Ready"
+)
 
-with time_col:
+st.markdown(
+    f"""
+    <div class="status-row">
 
-    st.caption(
-        f"🕐 {now.strftime('%I:%M:%S %p')}"
-    )
+        <span>
+            📅 {now.strftime('%d %b %Y')}
+        </span>
 
-with ready_col:
+        <span>
+            🕐 {now.strftime('%I:%M:%S %p')}
+        </span>
 
-    st.success(
-        "Ready",
-        icon="🟢"
-    )
+        <span class="{status_class}">
+            {status_text}
+        </span>
+
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
 # CHAT AREA
-#
-# ONLY THIS CONTAINER SCROLLS.
 # ============================================================
 
 chat_area = st.container(
-    height=370,
+    height=390,
     border=True
 )
 
@@ -1197,22 +1044,29 @@ with chat_area:
 
     if not st.session_state.messages:
 
-        st.write("")
-
-        st.write("")
-
         st.markdown(
-            "## 🎙️ How can I help you?"
-        )
+            """
+            <div class="welcome-box">
 
-        st.caption(
-            "Type a message below or use 🎙️ Start Voice."
-        )
+                <div class="icon">🎙️</div>
 
-        st.write("")
+                <h2>
+                    How can I help you?
+                </h2>
 
-        st.info(
-            "Your intelligent Personal SIRI assistant is ready."
+                <p>
+                    Type a message below or use
+                    the microphone.
+                </p>
+
+                <p>
+                    Your intelligent Personal SIRI
+                    assistant is ready.
+                </p>
+
+            </div>
+            """,
+            unsafe_allow_html=True
         )
 
     else:
@@ -1243,7 +1097,7 @@ with chat_area:
 
 
 # ============================================================
-# INPUT ROW
+# TEXT INPUT
 # ============================================================
 
 input_col, send_col = st.columns(
@@ -1271,7 +1125,7 @@ with send_col:
 
 
 # ============================================================
-# SEND
+# SEND TEXT MESSAGE
 # ============================================================
 
 if send_clicked:
@@ -1286,16 +1140,19 @@ if send_clicked:
 
 
 # ============================================================
-# VOICE BUTTON
+# VOICE SECTION
 # ============================================================
 
-left, center, right = st.columns(
+st.markdown("")
+
+
+voice_left, voice_center, voice_right = st.columns(
     [1, 2, 1]
 )
 
-with center:
+with voice_center:
 
-    if not voice_manager.active:
+    if not st.session_state.listening:
 
         start_clicked = st.button(
             "🎙️ Start Voice",
@@ -1305,15 +1162,9 @@ with center:
 
         if start_clicked:
 
-            if voice_manager.start():
+            st.session_state.listening = True
 
-                st.rerun()
-
-            else:
-
-                st.error(
-                    "Microphone could not be accessed."
-                )
+            st.rerun()
 
     else:
 
@@ -1325,76 +1176,138 @@ with center:
 
         if stop_clicked:
 
-            voice_manager.stop()
+            st.session_state.listening = False
 
             st.rerun()
 
 
 # ============================================================
-# VOICE RESULT
+# BROWSER MICROPHONE
 # ============================================================
 
-if voice_manager.result:
+if st.session_state.listening:
 
-    recognized = (
-        voice_manager.result.strip()
+    st.info(
+        "🎙️ Click the microphone below and speak. "
+        "When recording is finished, the audio will be "
+        "converted to text."
     )
 
-    voice_manager.result = ""
+    audio_value = st.audio_input(
+        "Record your message",
+        key="browser_microphone"
+    )
 
-    voice_manager.stop()
+    if audio_value is not None:
 
-    if recognized:
-
-        process_message(
-            recognized
+        # Create a simple identifier for this recording
+        audio_id = str(
+            hash(
+                audio_value.getvalue()
+            )
         )
+
+        if (
+            audio_id
+            != st.session_state.last_audio_id
+        ):
+
+            st.session_state.last_audio_id = audio_id
+
+            recognized = audio_to_text(
+                audio_value
+            )
+
+            st.session_state.listening = False
+
+            if recognized:
+
+                st.session_state.speech_text = (
+                    recognized
+                )
+
+                process_message(
+                    recognized
+                )
+
+                st.rerun()
+
+            else:
+
+                st.warning(
+                    "I couldn't understand the audio. "
+                    "Please try again."
+                )
+
+                st.rerun()
+
+
+# ============================================================
+# RECOGNIZED TEXT
+# ============================================================
+
+if st.session_state.speech_text:
+
+    st.caption(
+        f"🎤 Recognized: "
+        f"{st.session_state.speech_text}"
+    )
+
+
+# ============================================================
+# AI SPEAKING
+# ============================================================
+
+if (
+    st.session_state.tts_enabled
+    and st.session_state.last_spoken_message
+):
+
+    answer_to_speak = (
+        st.session_state.last_spoken_message
+    )
+
+    st.session_state.last_spoken_message = ""
+
+    speak_in_browser(
+        answer_to_speak,
+        st.session_state.voice_gender,
+        st.session_state.voice_speed
+    )
+
+
+# ============================================================
+# STOP SPEAKING
+# ============================================================
+
+a, b, c = st.columns(
+    [1, 2, 1]
+)
+
+with b:
+
+    stop_speech = st.button(
+        "⏹️ Stop AI Speaking",
+        key="stop_speaking",
+        use_container_width=True
+    )
+
+    if stop_speech:
+
+        stop_browser_speech()
 
         st.rerun()
-
-
-# ============================================================
-# VOICE ERROR
-# ============================================================
-
-if voice_manager.error:
-
-    st.warning(
-        voice_manager.error
-    )
-
-    voice_manager.error = ""
-
-
-# ============================================================
-# STOP AI SPEAKING
-# ============================================================
-
-if tts_manager.speaking:
-
-    a, b, c = st.columns(
-        [1, 2, 1]
-    )
-
-    with b:
-
-        stop_speech = st.button(
-            "⏹️ Stop AI Speaking",
-            key="stop_speaking",
-            use_container_width=True
-        )
-
-        if stop_speech:
-
-            tts_manager.stop()
-
-            st.rerun()
 
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.caption(
-    "🎙️ Personal SIRI • AI Voice & Chat Assistant"
+st.markdown(
+    """
+    <div class="footer-native">
+        🎙️ Personal SIRI • AI Voice & Chat Assistant
+    </div>
+    """,
+    unsafe_allow_html=True
 )
